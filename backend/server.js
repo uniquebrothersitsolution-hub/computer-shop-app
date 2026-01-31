@@ -35,6 +35,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/data', dataRoutes);
 app.use('/api/fields', fieldRoutes);
 
+// Root route for easy verification
+app.get('/', (req, res) => {
+    res.send('✅ Backend Server is Running! 🚀');
+});
+
 // Health check route
 app.get('/api/health', (req, res) => {
     res.status(200).json({
