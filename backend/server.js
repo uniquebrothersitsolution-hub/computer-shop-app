@@ -15,11 +15,8 @@ const fieldRoutes = require('./routes/fields');
 const app = express();
 
 // Middleware
-app.use(cors({
-    origin: '*', // Allow all origins (simpler for Vercel/Render setups)
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(cors()); // Allow all origins by default for simplicity
+app.options('*', cors()); // Enable pre-flight for all routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
