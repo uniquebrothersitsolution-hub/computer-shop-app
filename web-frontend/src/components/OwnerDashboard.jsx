@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { dataAPI } from '../services/api';
+import { dataAPI, fieldsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { format } from 'date-fns';
 import ThemeToggle from './ThemeToggle';
@@ -9,6 +9,7 @@ import { exportDailyData, exportMonthlyData, exportAllData } from '../utils/exce
 const OwnerDashboard = () => {
     const { user, logout } = useAuth();
     const [data, setData] = useState([]);
+    const [fields, setFields] = useState([]);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [editingId, setEditingId] = useState(null);
@@ -16,9 +17,14 @@ const OwnerDashboard = () => {
     const [message, setMessage] = useState({ type: '', text: '' });
 
     useEffect(() => {
-        fetchData();
-        fetchStats();
+        fetchInitialData();
     }, []);
+
+    const fetchInitialData = async () => {
+        setLoading(true);
+        await Promise.all([fetchData(), fetchFields(), fetchStats()]);
+        setLoading(false);
+    };
 
     const fetchData = async () => {
         try {
@@ -27,7 +33,15 @@ const OwnerDashboard = () => {
         } catch (error) {
             console.error('Error fetching data:', error);
         }
-        setLoading(false);
+    };
+
+    const fetchFields = async () => {
+        try {
+            const response = await fieldsAPI.getAll();
+            setFields(response.data.data);
+        } catch (error) {
+            console.error('Error fetching fields:', error);
+        }
     };
 
     const fetchStats = async () => {
@@ -41,13 +55,11 @@ const OwnerDashboard = () => {
 
     const handleEdit = (item) => {
         setEditingId(item._id);
-        setEditForm({
-            productName: item.productName,
-            quantity: item.quantity,
-            price: item.price,
-            customerName: item.customerName,
-            paymentMethod: item.paymentMethod
+        const formValues = {};
+        fields.forEach(field => {
+            formValues[field.fieldName] = item[field.fieldName] || '';
         });
+        setEditForm(formValues);
     };
 
     const handleUpdate = async (id) => {
@@ -184,13 +196,13 @@ const OwnerDashboard = () => {
 
                             switch (exportType) {
                                 case 'today':
-                                    exportDailyData(data);
+                                    exportDailyData(data, fields);
                                     break;
                                 case 'month':
-                                    exportMonthlyData(data);
+                                    exportMonthlyData(data, fields);
                                     break;
                                 case 'all':
-                                    exportAllData(data);
+                                    exportAllData(data, fields);
                                     break;
                             }
                         }}
@@ -215,15 +227,18 @@ const OwnerDashboard = () => {
                 <form onSubmit={async (e) => {
                     e.preventDefault();
                     const formData = new FormData(e.target);
+                    const payload = {
+                        date: new Date()
+                    };
+
+                    fields.forEach(field => {
+                        let value = formData.get(field.fieldName);
+                        if (field.fieldType === 'number') value = Number(value);
+                        payload[field.fieldName] = value;
+                    });
+
                     try {
-                        await dataAPI.create({
-                            productName: formData.get('productName'),
-                            quantity: Number(formData.get('quantity')),
-                            price: Number(formData.get('price')),
-                            customerName: formData.get('customerName'),
-                            paymentMethod: formData.get('paymentMethod'),
-                            date: new Date()
-                        });
+                        await dataAPI.create(payload);
                         setMessage({ type: 'success', text: 'Entry added successfully!' });
                         e.target.reset();
                         fetchData();
@@ -233,63 +248,28 @@ const OwnerDashboard = () => {
                     }
                 }}>
                     <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
-                        <div className="form-group" style={{ flex: '2', minWidth: '200px' }}>
-                            <label className="form-label">Product Name</label>
-                            <input
-                                type="text"
-                                name="productName"
-                                className="form-input"
-                                placeholder="e.g., Laptop, Mouse"
-                                required
-                            />
-                        </div>
-
-                        <div className="form-group" style={{ flex: '1', minWidth: '100px' }}>
-                            <label className="form-label">Quantity</label>
-                            <input
-                                type="number"
-                                name="quantity"
-                                className="form-input"
-                                placeholder="1"
-                                min="1"
-                                required
-                            />
-                        </div>
-
-                        <div className="form-group" style={{ flex: '1', minWidth: '120px' }}>
-                            <label className="form-label">Price (₹)</label>
-                            <input
-                                type="number"
-                                name="price"
-                                className="form-input"
-                                placeholder="0.00"
-                                min="0"
-                                step="0.01"
-                                required
-                            />
-                        </div>
-
-                        <div className="form-group" style={{ flex: '2', minWidth: '180px' }}>
-                            <label className="form-label">Customer Name</label>
-                            <input
-                                type="text"
-                                name="customerName"
-                                className="form-input"
-                                placeholder="Customer name"
-                                required
-                            />
-                        </div>
-
-                        <div className="form-group" style={{ flex: '1', minWidth: '140px' }}>
-                            <label className="form-label">Payment Method</label>
-                            <select name="paymentMethod" className="form-select" required>
-                                <option value="Cash">Cash</option>
-                                <option value="Card">Card</option>
-                                <option value="UPI">UPI</option>
-                                <option value="Net Banking">Net Banking</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
+                        {fields.map((field) => (
+                            <div key={field._id} className="form-group" style={{ flex: field.fieldType === 'text' ? '2' : '1', minWidth: '150px' }}>
+                                <label className="form-label">{field.fieldName}</label>
+                                {field.fieldType === 'select' ? (
+                                    <select name={field.fieldName} className="form-select" required={field.required}>
+                                        <option value="">Select {field.fieldName}</option>
+                                        {field.options?.map(opt => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type={field.fieldType}
+                                        name={field.fieldName}
+                                        className="form-input"
+                                        placeholder={field.fieldName}
+                                        required={field.required}
+                                        step={field.fieldType === 'number' ? 'any' : undefined}
+                                    />
+                                )}
+                            </div>
+                        ))}
                     </div>
 
                     <button type="submit" className="btn btn-success" style={{ marginTop: '1rem' }}>
@@ -314,12 +294,9 @@ const OwnerDashboard = () => {
                             <thead>
                                 <tr>
                                     <th>Date</th>
-                                    <th>Product</th>
-                                    <th>Qty</th>
-                                    <th>Price</th>
-                                    <th>Total</th>
-                                    <th>Customer</th>
-                                    <th>Payment</th>
+                                    {fields.map(field => (
+                                        <th key={field._id}>{field.fieldName}</th>
+                                    ))}
                                     <th>Entered By</th>
                                     <th>Actions</th>
                                 </tr>
@@ -328,76 +305,37 @@ const OwnerDashboard = () => {
                                 {data.map((item) => (
                                     <tr key={item._id}>
                                         <td>{format(new Date(item.date), 'dd MMM yyyy')}</td>
-                                        <td>
-                                            {editingId === item._id ? (
-                                                <input
-                                                    type="text"
-                                                    className="form-input"
-                                                    value={editForm.productName}
-                                                    onChange={(e) => setEditForm({ ...editForm, productName: e.target.value })}
-                                                    style={{ minWidth: '150px' }}
-                                                />
-                                            ) : (
-                                                item.productName
-                                            )}
-                                        </td>
-                                        <td>
-                                            {editingId === item._id ? (
-                                                <input
-                                                    type="number"
-                                                    className="form-input"
-                                                    value={editForm.quantity}
-                                                    onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })}
-                                                    style={{ width: '80px' }}
-                                                />
-                                            ) : (
-                                                item.quantity
-                                            )}
-                                        </td>
-                                        <td>
-                                            {editingId === item._id ? (
-                                                <input
-                                                    type="number"
-                                                    className="form-input"
-                                                    value={editForm.price}
-                                                    onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
-                                                    style={{ width: '100px' }}
-                                                />
-                                            ) : (
-                                                `₹${item.price}`
-                                            )}
-                                        </td>
-                                        <td style={{ fontWeight: '600' }}>₹{(item.quantity * item.price).toLocaleString('en-IN')}</td>
-                                        <td>
-                                            {editingId === item._id ? (
-                                                <input
-                                                    type="text"
-                                                    className="form-input"
-                                                    value={editForm.customerName}
-                                                    onChange={(e) => setEditForm({ ...editForm, customerName: e.target.value })}
-                                                    style={{ minWidth: '150px' }}
-                                                />
-                                            ) : (
-                                                item.customerName
-                                            )}
-                                        </td>
-                                        <td>
-                                            {editingId === item._id ? (
-                                                <select
-                                                    className="form-select"
-                                                    value={editForm.paymentMethod}
-                                                    onChange={(e) => setEditForm({ ...editForm, paymentMethod: e.target.value })}
-                                                >
-                                                    <option value="Cash">Cash</option>
-                                                    <option value="Card">Card</option>
-                                                    <option value="UPI">UPI</option>
-                                                    <option value="Net Banking">Net Banking</option>
-                                                    <option value="Other">Other</option>
-                                                </select>
-                                            ) : (
-                                                item.paymentMethod
-                                            )}
-                                        </td>
+                                        {fields.map(field => (
+                                            <td key={field._id}>
+                                                {editingId === item._id ? (
+                                                    field.fieldType === 'select' ? (
+                                                        <select
+                                                            className="form-select"
+                                                            value={editForm[field.fieldName]}
+                                                            onChange={(e) => setEditForm({ ...editForm, [field.fieldName]: e.target.value })}
+                                                        >
+                                                            {field.options?.map(opt => (
+                                                                <option key={opt} value={opt}>{opt}</option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <input
+                                                            type={field.fieldType}
+                                                            className="form-input"
+                                                            value={editForm[field.fieldName]}
+                                                            onChange={(e) => setEditForm({ ...editForm, [field.fieldName]: e.target.value })}
+                                                            style={{ minWidth: '100px' }}
+                                                        />
+                                                    )
+                                                ) : (
+                                                    field.fieldType === 'number' ?
+                                                        (field.fieldName.toLowerCase().includes('price') || field.fieldName.toLowerCase().includes('total') ?
+                                                            `₹${item[field.fieldName]?.toLocaleString('en-IN') || 0}` :
+                                                            item[field.fieldName]) :
+                                                        item[field.fieldName] || '-'
+                                                )}
+                                            </td>
+                                        ))}
                                         <td>{item.enteredBy?.username || 'N/A'}</td>
                                         <td>
                                             <div className="flex gap-1">

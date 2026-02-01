@@ -14,7 +14,22 @@ export const exportToExcel = (data, filename) => {
     XLSX.writeFile(wb, `${filename}.xlsx`);
 };
 
-export const exportDailyData = (allData) => {
+const formatDataForExport = (data, fields) => {
+    return data.map(item => {
+        const formatted = {
+            'Date': new Date(item.date).toLocaleDateString('en-IN')
+        };
+
+        fields.forEach(field => {
+            formatted[field.fieldName] = item[field.fieldName] || '-';
+        });
+
+        formatted['Entered By'] = item.enteredBy?.username || 'N/A';
+        return formatted;
+    });
+};
+
+export const exportDailyData = (allData, fields = []) => {
     // Get today's date at midnight for proper comparison
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -32,23 +47,13 @@ export const exportDailyData = (allData) => {
         return;
     }
 
-    const formattedData = todayData.map(item => ({
-        'Date': new Date(item.date).toLocaleDateString('en-IN'),
-        'Product Name': item.productName,
-        'Quantity': item.quantity,
-        'Price (Rs)': item.price,
-        'Total (Rs)': item.quantity * item.price,
-        'Customer Name': item.customerName,
-        'Payment Method': item.paymentMethod,
-        'Entered By': item.enteredBy?.username || 'N/A'
-    }));
-
+    const formattedData = fields.length > 0 ? formatDataForExport(todayData, fields) : todayData;
     const dateStr = new Date().toISOString().split('T')[0];
     const filename = `Daily_Sales_${dateStr}`;
     exportToExcel(formattedData, filename);
 };
 
-export const exportMonthlyData = (allData) => {
+export const exportMonthlyData = (allData, fields = []) => {
     // Get current month's start and end dates
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -67,18 +72,7 @@ export const exportMonthlyData = (allData) => {
         return;
     }
 
-    const formattedData = monthData.map(item => ({
-        'Date': new Date(item.date).toLocaleDateString('en-IN'),
-        'Product Name': item.productName,
-        'Quantity': item.quantity,
-        'Price (Rs)': item.price,
-        'Total (Rs)': item.quantity * item.price,
-        'Customer Name': item.customerName,
-        'Payment Method': item.paymentMethod,
-        'Entered By': item.enteredBy?.username || 'N/A'
-    }));
-
-    // Format: Monthly_Sales_January_2026
+    const formattedData = fields.length > 0 ? formatDataForExport(monthData, fields) : monthData;
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'];
     const monthName = monthNames[now.getMonth()];
@@ -88,23 +82,13 @@ export const exportMonthlyData = (allData) => {
     exportToExcel(formattedData, filename);
 };
 
-export const exportAllData = (allData) => {
+export const exportAllData = (allData, fields = []) => {
     if (allData.length === 0) {
         alert('No data available to export!');
         return;
     }
 
-    const formattedData = allData.map(item => ({
-        'Date': new Date(item.date).toLocaleDateString('en-IN'),
-        'Product Name': item.productName,
-        'Quantity': item.quantity,
-        'Price (Rs)': item.price,
-        'Total (Rs)': item.quantity * item.price,
-        'Customer Name': item.customerName,
-        'Payment Method': item.paymentMethod,
-        'Entered By': item.enteredBy?.username || 'N/A'
-    }));
-
+    const formattedData = fields.length > 0 ? formatDataForExport(allData, fields) : allData;
     const filename = `All_Sales_Data_${new Date().toISOString().split('T')[0]}`;
     exportToExcel(formattedData, filename);
 };

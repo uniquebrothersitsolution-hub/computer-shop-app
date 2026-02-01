@@ -52,21 +52,18 @@ router.get('/', protect, async (req, res) => {
 // @access  Private (Employee: today only, Owner: any date)
 router.post('/', protect, checkDateAccess, async (req, res) => {
     try {
-        const { productName, quantity, price, customerName, paymentMethod } = req.body;
-
         // Set date to today if not provided
         let entryDate = req.body.date ? new Date(req.body.date) : new Date();
         entryDate.setHours(0, 0, 0, 0);
 
+        // Prepare data (exclude potential protected fields)
+        const { date, enteredBy, ...dynamicData } = req.body;
+
         // Create data entry
         const dataEntry = await DailyData.create({
+            ...dynamicData,
             date: entryDate,
-            enteredBy: req.user._id,
-            productName,
-            quantity,
-            price,
-            customerName,
-            paymentMethod
+            enteredBy: req.user._id
         });
 
         res.status(201).json({
@@ -96,16 +93,12 @@ router.put('/:id', protect, authorize('owner'), async (req, res) => {
             });
         }
 
-        const { productName, quantity, price, customerName, paymentMethod, date } = req.body;
+        const { date, enteredBy, ...dynamicData } = req.body;
 
         dataEntry = await DailyData.findByIdAndUpdate(
             req.params.id,
             {
-                productName,
-                quantity,
-                price,
-                customerName,
-                paymentMethod,
+                ...dynamicData,
                 date: date ? new Date(date) : dataEntry.date
             },
             {

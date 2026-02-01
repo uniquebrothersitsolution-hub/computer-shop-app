@@ -39,7 +39,8 @@ const DailyDataSchema = new mongoose.Schema({
         default: 'Cash'
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    strict: false
 });
 
 // Index for efficient querying by date and user

@@ -1,25 +1,46 @@
-import { useState } from 'react';
-import { dataAPI } from '../services/api';
+import { useState, useEffect } from 'react';
+import { dataAPI, fieldsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import ThemeToggle from './ThemeToggle';
 
 const EmployeeDashboard = () => {
     const { user, logout } = useAuth();
-    const [rows, setRows] = useState([
-        { id: 1, productName: '', quantity: '', price: '', customerName: '', paymentMethod: 'Cash' }
-    ]);
+    const [fields, setFields] = useState([]);
+    const [rows, setRows] = useState([]);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
+
+    useEffect(() => {
+        fetchFields();
+    }, []);
+
+    const fetchFields = async () => {
+        try {
+            const response = await fieldsAPI.getAll();
+            const fetchedFields = response.data.data;
+            setFields(fetchedFields);
+
+            // Initialize first row with dynamic fields
+            const firstRow = { id: 1 };
+            fetchedFields.forEach(field => {
+                firstRow[field.fieldName] = '';
+            });
+            setRows([firstRow]);
+        } catch (error) {
+            console.error('Error fetching fields:', error);
+            setMessage({ type: 'error', text: 'Failed to load field configuration' });
+        }
+        setInitialLoading(false);
+    };
 
     const addRow = () => {
-        setRows([...rows, {
-            id: rows.length + 1,
-            productName: '',
-            quantity: '',
-            price: '',
-            customerName: '',
-            paymentMethod: 'Cash'
-        }]);
+        const nextId = rows.length > 0 ? Math.max(...rows.map(r => r.id)) + 1 : 1;
+        const newRow = { id: nextId };
+        fields.forEach(field => {
+            newRow[field.fieldName] = '';
+        });
+        setRows([...rows, newRow]);
     };
 
     const removeRow = (id) => {
@@ -28,9 +49,9 @@ const EmployeeDashboard = () => {
         }
     };
 
-    const updateRow = (id, field, value) => {
+    const updateRow = (id, fieldName, value) => {
         setRows(rows.map(row =>
-            row.id === id ? { ...row, [field]: value } : row
+            row.id === id ? { ...row, [fieldName]: value } : row
         ));
     };
 
@@ -40,40 +61,43 @@ const EmployeeDashboard = () => {
         setMessage({ type: '', text: '' });
 
         try {
-            // Validate all rows
-            const validRows = rows.filter(row =>
-                row.productName && row.quantity && row.price && row.customerName
-            );
+            // Filter out empty rows (where all dynamic fields are empty)
+            const validRows = rows.filter(row => {
+                return fields.some(field => field.required && row[field.fieldName]);
+            });
 
             if (validRows.length === 0) {
-                setMessage({ type: 'error', text: 'Please fill at least one complete row' });
+                setMessage({ type: 'error', text: 'Please fill at least one row with required fields' });
                 setLoading(false);
                 return;
             }
 
             // Submit all valid rows
-            const promises = validRows.map(row =>
-                dataAPI.create({
-                    productName: row.productName,
-                    quantity: Number(row.quantity),
-                    price: Number(row.price),
-                    customerName: row.customerName,
-                    paymentMethod: row.paymentMethod,
+            const promises = validRows.map(row => {
+                const payload = {
                     date: new Date()
-                })
-            );
+                };
+                fields.forEach(field => {
+                    let value = row[field.fieldName];
+                    if (field.fieldType === 'number' && value !== '') value = Number(value);
+                    payload[field.fieldName] = value;
+                });
+                return dataAPI.create(payload);
+            });
 
             await Promise.all(promises);
 
             setMessage({
                 type: 'success',
-                text: `Successfully submitted ${validRows.length} ${validRows.length === 1 ? 'entry' : 'entries'}!`
+                text: `✅ Successfully submitted ${validRows.length} ${validRows.length === 1 ? 'entry' : 'entries'}!`
             });
 
             // Reset form
-            setRows([
-                { id: 1, productName: '', quantity: '', price: '', customerName: '', paymentMethod: 'Cash' }
-            ]);
+            const firstRow = { id: Date.now() };
+            fields.forEach(field => {
+                firstRow[field.fieldName] = '';
+            });
+            setRows([firstRow]);
         } catch (error) {
             setMessage({
                 type: 'error',
@@ -82,7 +106,20 @@ const EmployeeDashboard = () => {
         }
 
         setLoading(false);
+
+        // Clear success message after 5 seconds
+        if (message.type === 'success') {
+            setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+        }
     };
+
+    if (initialLoading) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <div className="spinner"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="container" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
@@ -127,12 +164,11 @@ const EmployeeDashboard = () => {
                             <thead>
                                 <tr>
                                     <th style={{ width: '40px' }}>#</th>
-                                    <th style={{ minWidth: '200px' }}>Product Name</th>
-                                    <th style={{ width: '100px' }}>Quantity</th>
-                                    <th style={{ width: '120px' }}>Price (₹)</th>
-                                    <th style={{ width: '120px' }}>Total (₹)</th>
-                                    <th style={{ minWidth: '180px' }}>Customer Name</th>
-                                    <th style={{ width: '140px' }}>Payment Method</th>
+                                    {fields.map(field => (
+                                        <th key={field._id} style={{ minWidth: field.fieldType === 'text' ? '200px' : '120px' }}>
+                                            {field.fieldName} {field.required && <span style={{ color: 'var(--danger)' }}>*</span>}
+                                        </th>
+                                    ))}
                                     <th style={{ width: '80px' }}>Action</th>
                                 </tr>
                             </thead>
@@ -140,68 +176,35 @@ const EmployeeDashboard = () => {
                                 {rows.map((row, index) => (
                                     <tr key={row.id}>
                                         <td style={{ textAlign: 'center', fontWeight: '600' }}>{index + 1}</td>
-                                        <td>
-                                            <input
-                                                type="text"
-                                                className="form-input"
-                                                placeholder="e.g., Laptop, Mouse"
-                                                value={row.productName}
-                                                onChange={(e) => updateRow(row.id, 'productName', e.target.value)}
-                                                style={{ width: '100%', padding: '0.5rem' }}
-                                            />
-                                        </td>
-                                        <td>
-                                            <input
-                                                type="number"
-                                                className="form-input"
-                                                placeholder="1"
-                                                min="1"
-                                                value={row.quantity}
-                                                onChange={(e) => updateRow(row.id, 'quantity', e.target.value)}
-                                                style={{ width: '100%', padding: '0.5rem' }}
-                                            />
-                                        </td>
-                                        <td>
-                                            <input
-                                                type="number"
-                                                className="form-input"
-                                                placeholder="0.00"
-                                                min="0"
-                                                step="0.01"
-                                                value={row.price}
-                                                onChange={(e) => updateRow(row.id, 'price', e.target.value)}
-                                                style={{ width: '100%', padding: '0.5rem' }}
-                                            />
-                                        </td>
-                                        <td style={{ fontWeight: '600', fontSize: '0.95rem', color: 'var(--success)' }}>
-                                            {row.quantity && row.price
-                                                ? `₹${(Number(row.quantity) * Number(row.price)).toLocaleString('en-IN')}`
-                                                : '₹0'}
-                                        </td>
-                                        <td>
-                                            <input
-                                                type="text"
-                                                className="form-input"
-                                                placeholder="Customer name"
-                                                value={row.customerName}
-                                                onChange={(e) => updateRow(row.id, 'customerName', e.target.value)}
-                                                style={{ width: '100%', padding: '0.5rem' }}
-                                            />
-                                        </td>
-                                        <td>
-                                            <select
-                                                className="form-select"
-                                                value={row.paymentMethod}
-                                                onChange={(e) => updateRow(row.id, 'paymentMethod', e.target.value)}
-                                                style={{ width: '100%', padding: '0.5rem' }}
-                                            >
-                                                <option value="Cash">Cash</option>
-                                                <option value="Card">Card</option>
-                                                <option value="UPI">UPI</option>
-                                                <option value="Net Banking">Net Banking</option>
-                                                <option value="Other">Other</option>
-                                            </select>
-                                        </td>
+                                        {fields.map(field => (
+                                            <td key={field._id}>
+                                                {field.fieldType === 'select' ? (
+                                                    <select
+                                                        className="form-select"
+                                                        value={row[field.fieldName]}
+                                                        onChange={(e) => updateRow(row.id, field.fieldName, e.target.value)}
+                                                        required={field.required}
+                                                        style={{ width: '100%', padding: '0.5rem' }}
+                                                    >
+                                                        <option value="">Select {field.fieldName}</option>
+                                                        {field.options?.map(opt => (
+                                                            <option key={opt} value={opt}>{opt}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <input
+                                                        type={field.fieldType}
+                                                        className="form-input"
+                                                        placeholder={field.fieldName}
+                                                        value={row[field.fieldName]}
+                                                        onChange={(e) => updateRow(row.id, field.fieldName, e.target.value)}
+                                                        required={field.required}
+                                                        style={{ width: '100%', padding: '0.5rem' }}
+                                                        step={field.fieldType === 'number' ? 'any' : undefined}
+                                                    />
+                                                )}
+                                            </td>
+                                        ))}
                                         <td style={{ textAlign: 'center' }}>
                                             {rows.length > 1 && (
                                                 <button
@@ -256,10 +259,10 @@ const EmployeeDashboard = () => {
                 }}>
                     <p>📝 <strong>Instructions:</strong></p>
                     <ul style={{ marginLeft: '1.5rem', marginTop: '0.5rem' }}>
-                        <li>Fill in the Excel-like table above</li>
+                        <li>Fill in the table above based on the required fields</li>
                         <li>Click "Add Row" to enter multiple sales at once</li>
                         <li>All data will be submitted together</li>
-                        <li>Data cannot be viewed after submission</li>
+                        <li>Changes to fields by the owner will automatically show up here</li>
                     </ul>
                 </div>
             </div>
