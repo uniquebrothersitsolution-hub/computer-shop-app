@@ -153,13 +153,35 @@ router.delete('/:id', protect, authorize('owner'), async (req, res) => {
 // @access  Private/Owner
 router.get('/stats', protect, authorize('owner'), async (req, res) => {
     try {
+        // Fetch current field config to find price and quantity equivalents
+        const FieldConfig = require('../models/FieldConfig');
+        const fields = await FieldConfig.find({ fieldType: 'number' });
+
+        // Determine which fields to use for calculation
+        const priceField = fields.find(f => /price|rate|cost/i.test(f.fieldName)) || { fieldName: 'price' };
+        const qtyField = fields.find(f => /qty|quantity/i.test(f.fieldName)) || { fieldName: 'quantity' };
+
         const stats = await DailyData.aggregate([
             {
                 $group: {
                     _id: null,
-                    totalSales: { $sum: { $multiply: ['$quantity', '$price'] } },
+                    totalSales: {
+                        $sum: {
+                            $multiply: [
+                                { $ifNull: [`$${qtyField.fieldName}`, 0] },
+                                { $ifNull: [`$${priceField.fieldName}`, 0] }
+                            ]
+                        }
+                    },
                     totalEntries: { $sum: 1 },
-                    avgSale: { $avg: { $multiply: ['$quantity', '$price'] } }
+                    avgSale: {
+                        $avg: {
+                            $multiply: [
+                                { $ifNull: [`$${qtyField.fieldName}`, 0] },
+                                { $ifNull: [`$${priceField.fieldName}`, 0] }
+                            ]
+                        }
+                    }
                 }
             }
         ]);

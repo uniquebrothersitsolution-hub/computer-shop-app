@@ -16,8 +16,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { COLORS, FONTS, SPACING, RADIUS } from '../constants/theme';
 
 export default function LoginScreen() {
-    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
 
@@ -77,15 +77,23 @@ export default function LoginScreen() {
 
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Password</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Enter your password"
-                                placeholderTextColor={COLORS.textMuted}
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry
-                                editable={!loading}
-                            />
+                            <View style={styles.passwordContainer}>
+                                <TextInput
+                                    style={styles.passwordInput}
+                                    placeholder="Enter your password"
+                                    placeholderTextColor={COLORS.textMuted}
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry={!showPassword}
+                                    editable={!loading}
+                                />
+                                <TouchableOpacity
+                                    onPress={() => setShowPassword(!showPassword)}
+                                    style={styles.eyeIcon}
+                                >
+                                    <Text style={styles.eyeText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
                         <TouchableOpacity
@@ -168,6 +176,26 @@ const styles = StyleSheet.create({
         padding: SPACING.md,
         fontSize: FONTS.sizes.base,
         color: COLORS.textPrimary,
+    },
+    passwordContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: COLORS.bgSecondary,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        borderRadius: RADIUS.md,
+    },
+    passwordInput: {
+        flex: 1,
+        padding: SPACING.md,
+        fontSize: FONTS.sizes.base,
+        color: COLORS.textPrimary,
+    },
+    eyeIcon: {
+        padding: SPACING.md,
+    },
+    eyeText: {
+        fontSize: 20,
     },
     button: {
         backgroundColor: COLORS.primary,

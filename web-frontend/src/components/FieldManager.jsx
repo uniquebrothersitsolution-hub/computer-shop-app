@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { fieldsAPI } from '../services/api';
 
-const FieldManager = () => {
-    const [fields, setFields] = useState([]);
+const FieldManager = ({ fields, onRefresh }) => {
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({});
@@ -13,19 +12,6 @@ const FieldManager = () => {
         options: ''
     });
     const [message, setMessage] = useState({ type: '', text: '' });
-
-    useEffect(() => {
-        fetchFields();
-    }, []);
-
-    const fetchFields = async () => {
-        try {
-            const response = await fieldsAPI.getAll();
-            setFields(response.data.data);
-        } catch (error) {
-            console.error('Error fetching fields:', error);
-        }
-    };
 
     const handleAddField = async (e) => {
         e.preventDefault();
@@ -40,7 +26,7 @@ const FieldManager = () => {
             setMessage({ type: 'success', text: 'Field added successfully!' });
             setNewField({ fieldName: '', fieldType: 'text', required: true, options: '' });
             setShowAddForm(false);
-            fetchFields();
+            onRefresh();
         } catch (error) {
             setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to add field' });
         }
@@ -66,7 +52,7 @@ const FieldManager = () => {
             await fieldsAPI.update(id, fieldData);
             setMessage({ type: 'success', text: '✅ Field saved successfully!' });
             setEditingId(null);
-            fetchFields();
+            onRefresh();
 
             // Clear message after 3 seconds
             setTimeout(() => setMessage({ type: '', text: '' }), 3000);
@@ -81,7 +67,7 @@ const FieldManager = () => {
         try {
             await fieldsAPI.delete(id);
             setMessage({ type: 'success', text: 'Field deleted successfully!' });
-            fetchFields();
+            onRefresh();
         } catch (error) {
             setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to delete field' });
         }
@@ -101,7 +87,7 @@ const FieldManager = () => {
             await fieldsAPI.update(newFields[index]._id, { order: index + 1 });
             await fieldsAPI.update(newFields[targetIndex]._id, { order: targetIndex + 1 });
             setMessage({ type: 'success', text: 'Field order updated!' });
-            fetchFields();
+            onRefresh();
         } catch (error) {
             setMessage({ type: 'error', text: 'Failed to update order' });
         }

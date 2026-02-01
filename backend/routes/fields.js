@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const FieldConfig = require('../models/FieldConfig');
+const DailyData = require('../models/DailyData');
 const { protect, authorize } = require('../middleware/auth');
 
 // @route   GET /api/fields
@@ -64,11 +65,22 @@ router.put('/:id', protect, authorize('owner'), async (req, res) => {
             });
         }
 
+        const oldFieldName = field.fieldName;
+        const newFieldName = req.body.fieldName;
+
         const updatedField = await FieldConfig.findByIdAndUpdate(
             req.params.id,
             req.body,
             { new: true, runValidators: true }
         );
+
+        // If field name changed, rename keys in DailyData
+        if (newFieldName && oldFieldName !== newFieldName) {
+            await DailyData.updateMany(
+                { [oldFieldName]: { $exists: true } },
+                { $rename: { [oldFieldName]: newFieldName } }
+            );
+        }
 
         res.status(200).json({
             success: true,

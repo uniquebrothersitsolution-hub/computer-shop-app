@@ -385,7 +385,7 @@ const OwnerDashboard = () => {
             </div>
 
             {/* Field Manager */}
-            <FieldManager />
+            <FieldManager fields={fields} onRefresh={fetchInitialData} />
 
             {/* Footer with Logout */}
             <div className="text-center mt-4 mb-4">
