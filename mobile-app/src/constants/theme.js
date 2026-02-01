@@ -1,5 +1,5 @@
 // API Base URL - Update this to your backend URL
-export const API_BASE_URL = 'http://10.82.31.135:5000/api';
+export const API_BASE_URL = 'https://unique-brothers-app.onrender.com/api';
 
 // Colors
 export const COLORS = {
