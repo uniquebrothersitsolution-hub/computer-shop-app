@@ -41,9 +41,31 @@ const seedUsers = async () => {
         });
         console.log('✅ Created employee account');
 
+        // Create secondary owner account
+        await User.create({
+            username: 'shahir',
+            email: 'shahir@uniquebrothers.com',
+            password: 'sha@123',
+            role: 'owner',
+            contactNumber: '1111111111'
+        });
+        console.log('✅ Created secondary owner (shahir)');
+
+        // Create secondary employee account
+        await User.create({
+            username: 'emp',
+            email: 'emp@uniquebrothers.com',
+            password: 'sha@123',
+            role: 'employee',
+            contactNumber: '2222222222'
+        });
+        console.log('✅ Created secondary employee (emp)');
+
         console.log('\n📋 New Credentials:');
         console.log('Owner    - Username: admin1,   Password: unique123');
         console.log('Employee - Username: staff1,   Password: unique123');
+        console.log('Owner 2  - Username: shahir,   Password: sha@123');
+        console.log('Staff 2  - Username: emp,      Password: sha@123');
 
         process.exit(0);
     } catch (error) {
