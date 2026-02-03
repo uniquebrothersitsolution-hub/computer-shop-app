@@ -33,6 +33,7 @@ const OwnerDashboard = () => {
             setData(response.data.data);
         } catch (error) {
             console.error('Error fetching data:', error);
+            setMessage({ type: 'error', text: '📡 Failed to connect to server. Check if backend is running.' });
         }
     };
 
@@ -42,6 +43,7 @@ const OwnerDashboard = () => {
             setFields(response.data.data);
         } catch (error) {
             console.error('Error fetching fields:', error);
+            setMessage({ type: 'error', text: '⚙️ Failed to load configuration.' });
         }
     };
 

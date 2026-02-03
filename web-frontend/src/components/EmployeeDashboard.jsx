@@ -61,13 +61,13 @@ const EmployeeDashboard = () => {
         setMessage({ type: '', text: '' });
 
         try {
-            // Filter out empty rows (where all dynamic fields are empty)
+            // Filter out empty rows (where all fields in the row are empty)
             const validRows = rows.filter(row => {
-                return fields.some(field => field.required && row[field.fieldName]);
+                return fields.some(field => row[field.fieldName] !== '' && row[field.fieldName] !== null);
             });
 
             if (validRows.length === 0) {
-                setMessage({ type: 'error', text: 'Please fill at least one row with required fields' });
+                setMessage({ type: 'error', text: 'Please fill at least one row before submitting' });
                 setLoading(false);
                 return;
             }

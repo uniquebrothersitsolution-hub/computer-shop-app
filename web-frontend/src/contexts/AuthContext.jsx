@@ -44,9 +44,15 @@ export const AuthProvider = ({ children }) => {
 
             return { success: true };
         } catch (error) {
+            let errorMsg = 'Login failed';
+            if (!error.response) {
+                errorMsg = '📡 Backend unreachable. Please check your internet or Render status.';
+            } else {
+                errorMsg = error.response?.data?.message || 'Invalid username or password';
+            }
             return {
                 success: false,
-                message: error.response?.data?.message || 'Login failed'
+                message: errorMsg
             };
         }
     };

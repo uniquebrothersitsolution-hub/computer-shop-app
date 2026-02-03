@@ -2,8 +2,8 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 console.log('Current API URL:', API_URL);
-if (!import.meta.env.VITE_API_URL) {
-    console.warn('VITE_API_URL is not defined. Falling back to localhost.');
+if (!import.meta.env.VITE_API_URL && import.meta.env.MODE === 'production') {
+    console.error('CRITICAL: VITE_API_URL is not defined in production!');
 }
 
 // Create axios instance
@@ -32,10 +32,16 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        if (!error.response) {
+            console.error('Network Error - Is the backend running?', error.message);
+        }
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            window.location.href = '/login';
+            // Only redirect if not already on login page to avoid loops
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }
