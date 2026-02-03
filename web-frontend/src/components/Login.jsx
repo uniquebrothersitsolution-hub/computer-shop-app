@@ -8,8 +8,28 @@ const Login = () => {
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [apiStatus, setApiStatus] = useState('checking'); // checking, online, offline
     const { login } = useAuth();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        checkApi();
+    }, []);
+
+    const checkApi = async () => {
+        try {
+            const startTime = Date.now();
+            // Try to hit backends root or health endpoint
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/health`.replace('/api/health', '/api/health'));
+            if (response.ok) {
+                setApiStatus('online');
+            } else {
+                setApiStatus('offline');
+            }
+        } catch (err) {
+            setApiStatus('offline');
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -87,6 +107,32 @@ const Login = () => {
                         Unique Brothers
                     </h1>
                     <p style={{ color: 'var(--text-secondary)' }}>Sign in to your account</p>
+                    <div style={{
+                        marginTop: '0.5rem',
+                        fontSize: '0.75rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '1rem',
+                        background: apiStatus === 'online' ? 'var(--success-bg)' : apiStatus === 'offline' ? 'var(--error-bg)' : 'var(--bg-tertiary)',
+                        color: apiStatus === 'online' ? 'var(--success)' : apiStatus === 'offline' ? 'var(--error)' : 'var(--text-muted)',
+                        border: `1px solid ${apiStatus === 'online' ? 'var(--success)' : apiStatus === 'offline' ? 'var(--error)' : 'var(--border)'}`
+                    }}>
+                        <span style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: apiStatus === 'online' ? 'var(--success)' : apiStatus === 'offline' ? 'var(--error)' : 'var(--text-muted)',
+                            boxShadow: apiStatus === 'online' ? '0 0 8px var(--success)' : 'none'
+                        }}></span>
+                        {apiStatus === 'online' ? 'Server Online' : apiStatus === 'offline' ? 'Server Offline' : 'Checking Connection...'}
+                        {apiStatus === 'offline' && (
+                            <button onClick={checkApi} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '0.75rem', textDecoration: 'underline', color: 'inherit' }}>
+                                Retry
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {error && (
